@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Query Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #007AFF;
+            --primary-hover: #0051D5;
+            --background: #F5F5F7;
+            --surface: #FFFFFF;
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --border: #D2D2D7;
+            --shadow: rgba(0, 0, 0, 0.08);
+            --success: #34C759;
+            --error: #FF3B30;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--background);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .info-item {
+            padding: 16px;
+            background: var(--background);
+            border-radius: 12px;
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .query-section {
+            margin-top: 40px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 16px;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: all 0.2s ease;
+            background: var(--surface);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            background: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--background);
+            color: var(--text-primary);
+            padding: 14px 24px;
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .response-section {
+            margin-top: 32px;
+            display: none;
+        }
+
+        .response-section.active {
+            display: block;
+        }
+
+        .response-content {
+            background: var(--background);
+            border-radius: 12px;
+            padding: 24px;
+            font-size: 15px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            margin-top: 20px;
+            color: var(--text-secondary);
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #FFF5F5;
+            border: 1px solid var(--error);
+            color: var(--error);
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .tables-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .table-tag {
+            background: var(--background);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 36px;
+            }
+
+            .card {
+                padding: 24px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Database Query Assistant</h1>
+            <p class="subtitle">Natural language interface for database queries</p>
+        </header>
+
+        <div class="card">
+            <h2 class="section-title">System Information</h2>
+            <div class="info-grid" id="systemInfo">
+                <div class="info-item">
+                    <div class="info-label">Model</div>
+                    <div class="info-value" id="modelInfo">Loading...</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Database</div>
+                    <div class="info-value" id="databaseInfo">Loading...</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Agent</div>
+                    <div class="info-value" id="agentInfo">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">Available Tables</h2>
+            <div class="tables-list" id="tablesList">
+                <div class="info-value">Loading...</div>
+            </div>
+        </div>
+
+        <div class="card query-section">
+            <h2 class="section-title">Query Database</h2>
+            
+            <div class="input-group">
+                <label for="queryInput">Enter your question</label>
+                <textarea 
+                    id="queryInput" 
+                    placeholder="What is the total revenue by country?"
+                ></textarea>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" id="submitBtn">Submit Query</button>
+                <button class="btn-secondary" id="clearBtn">Clear</button>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <span>Processing your query...</span>
+            </div>
+
+            <div class="error" id="error"></div>
+
+            <div class="response-section" id="responseSection">
+                <h3 class="section-title">Response</h3>
+                <div class="response-content" id="responseContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/api/info`);
+                const data = await response.json();
+                
+                document.getElementById('modelInfo').textContent = data.Model || 'N/A';
+                document.getElementById('databaseInfo').textContent = data.Database || 'N/A';
+                document.getElementById('agentInfo').textContent = data.Agent || 'N/A';
+            } catch (error) {
+                console.error('Failed to load system info:', error);
+            }
+        }
+
+        async function loadDatabaseInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/api/database`);
+                const data = await response.json();
+                
+                const tablesList = document.getElementById('tablesList');
+                if (data.Tables && data.Tables.length > 0) {
+                    tablesList.innerHTML = data.Tables
+                        .map(table => `<span class="table-tag">${table}</span>`)
+                        .join('');
+                } else {
+                    tablesList.innerHTML = '<div class="info-value">No tables found</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load database info:', error);
+            }
+        }
+
+        async function submitQuery() {
+            const queryInput = document.getElementById('queryInput');
+            const question = queryInput.value.trim();
+            
+            if (!question) {
+                showError('Please enter a question');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const responseSection = document.getElementById('responseSection');
+            const responseContent = document.getElementById('responseContent');
+            const errorDiv = document.getElementById('error');
+
+            submitBtn.disabled = true;
+            loading.classList.add('active');
+            responseSection.classList.remove('active');
+            errorDiv.classList.remove('active');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/query`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let displayText = '';
+                    
+                    if (data.content) {
+                        displayText = data.content;
+                    } else if (typeof data === 'object') {
+                        displayText = JSON.stringify(data, null, 2);
+                    } else {
+                        displayText = String(data);
+                    }
+                    
+                    responseContent.textContent = displayText;
+                    responseSection.classList.add('active');
+                } else {
+                    showError(data.error || 'Failed to process query');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                loading.classList.remove('active');
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+        }
+
+        function clearForm() {
+            document.getElementById('queryInput').value = '';
+            document.getElementById('responseSection').classList.remove('active');
+            document.getElementById('error').classList.remove('active');
+        }
+
+        document.getElementById('submitBtn').addEventListener('click', submitQuery);
+        document.getElementById('clearBtn').addEventListener('click', clearForm);
+        
+        document.getElementById('queryInput').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                submitQuery();
+            }
+        });
+
+        loadSystemInfo();
+        loadDatabaseInfo();
+    </script>
+</body>
+</html>

@@ -19,7 +19,7 @@ load_dotenv()
 
 # load model
 def load_model():
-  model_name='llama-3.1-8b-instant'
+  model_name='openai/gpt-oss-120b'
   key=os.environ.get('GROQ_API_KEY')
   if not key:
       return None,None
