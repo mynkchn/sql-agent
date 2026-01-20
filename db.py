@@ -16,6 +16,6 @@ except Exception as e:
 
 session=Session(engine)
 inspection=inspect(engine)
-tables=inspection.get_table_names()
+tables=inspection.get_usable_table_names()
 columns=inspection.get_columns('Ward')
 

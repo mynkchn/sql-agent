@@ -40,6 +40,6 @@ async def query_database(question):
     result=AskQuestion(agent=agent,question=question)
     return result
 
-if __name__=="__main__":
-    uvicorn.run("app:app",port=5000,log_level="info")
+# if __name__=="__main__":
+#     uvicorn.run("app:app",port=5000,log_level="info")
     
