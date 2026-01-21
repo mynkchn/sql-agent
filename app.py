@@ -4,6 +4,15 @@ from SQLAgent import load_model,db,getkit,AgentCreate,AskQuestion,load_database
 
 
 app=FastAPI()
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8082"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # configuring all the needs and requirements
 try:
