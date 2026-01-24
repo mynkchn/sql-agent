@@ -1,123 +1,113 @@
-import os
-from dotenv import load_dotenv
-import getpass
-from langchain.chat_models import init_chat_model
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-import pathlib
-import sys
-import requests
-from langchain_community.utilities import SQLDatabase
-from langchain_community.agent_toolkits import SQLDatabaseToolkit
-from langchain.agents import create_agent
-from prompt import GetPrompt
-from sqlalchemy import select,inspect,create_engine
-from langchain_groq import ChatGroq
+from fastapi import FastAPI, Query
+from enum import Enum
+import uvicorn
+from SQLAgent import load_model, db, getkit, AgentCreate, AskQuestion, load_database, GetPrompt
 
-# load environment variables
-load_dotenv()
 
-# load model
-def load_model():
-  model_name='openai/gpt-oss-120b'
-  key=os.environ.get('GROQ_API_KEY')
-  if not key:
-      return None,None
-  model=ChatGroq(
-    model=model_name,
-    api_key=key
-  )
-  return model,{'Model':model_name}
+app = FastAPI()
 
-# load database
-def load_database():
-    url=os.environ.get('DATABASE_URL')
-    try:
-        engine=create_engine(url)
-        if engine:
-           print('DataBase connected')
-        else:
-           print('Failed to connect database')
-    except Exception as e:
-            print(f'Failed due to error {e}')
-    return SQLDatabase(engine)
 
-# get db
-def db():
-    if not pathlib.Path('Chinook.db').exists():
-        if load_database()==200:
-           db=SQLDatabase.from_uri('sqlite:///Chinook.db')
-           return db
-        else:
-            return None
-    return SQLDatabase.from_uri('sqlite:///Chinook.db')
+# Language enumeration
+class Language(str, Enum):
+    ENGLISH = "english"
+    HINDI = "hindi"
+    GUJARATI = "gujarati"
 
-# get toolkit
-def getkit(database,model):
-    if not database or not model:
-        return -1
-    toolkit=SQLDatabaseToolkit(db=database,llm=model)
-    return toolkit
+
+# Language-specific instructions
+LANGUAGE_INSTRUCTIONS = {
+    "hindi": """
+### भाषा निर्देश
+आपको सभी उत्तर हिंदी में देने हैं। तकनीकी शब्दों को हिंदी में अनुवाद करें या कोष्ठक में अंग्रेजी शब्द दें।
+उदाहरण: "समाधान दर (Resolution Rate)", "वार्ड (Ward)", "सर्वेक्षणकर्ता (Surveyor)"
+
+**महत्वपूर्ण:** सभी शीर्षक, विश्लेषण, और सिफारिशें हिंदी में लिखें।
+""",
+    "gujarati": """
+### ભાષા સૂચના
+તમારે બધા જવાબો ગુજરાતીમાં આપવાના છે. તકનીકી શબ્દોનો ગુજરાતીમાં અનુવાદ કરો અથવા કૌંસમાં અંગ્રેજી શબ્દ આપો.
+ઉદાહરણ: "નિરાકરણ દર (Resolution Rate)", "વોર્ડ (Ward)", "સર્વેક્ષક (Surveyor)"
+
+**મહત્વપૂર્ણ:** બધા શીર્ષકો, વિશ્લેષણ અને ભલામણો ગુજરાતીમાં લખો.
+""",
+    "english": ""
+}
+
+
+# Store agents for different languages
+agents = {}
+
+
+# configuring all the needs and requirements
+try:
+    model, info = load_model()
+    database = load_database()
+    tools = getkit(model=model, database=database).get_tools()
+    
+    # Create agents for each language
+    for lang in Language:
+        lang_value = lang.value
+        # Temporarily modify GetPrompt to include language instruction
+        original_prompt = GetPrompt(database)
+        lang_instruction = LANGUAGE_INSTRUCTIONS.get(lang_value, "")
         
-# create agent
-def AgentCreate(model,tools,database):
-    prompt=GetPrompt(database)
-    agent=create_agent(model,tools,system_prompt=prompt)
-    return agent
-
-# ask llm 
-def AskQuestion(question,agent):
-    result=None
-    for step in agent.stream(
-      {"messages": [{"role": "user", "content": question}]},
-    stream_mode="values",
-    ):
-        result=step["messages"][-1]
-    return result
-
-
-if __name__=='__main__':
+        # Inject language instruction at the beginning of the prompt
+        modified_prompt = f"{lang_instruction}\n\n{original_prompt}"
+        
+        # You'll need to modify your SQLAgent.py to accept this
+        # For now, we'll create agents dynamically in the endpoint
+        if lang_value == "english":
+            agents[lang_value] = AgentCreate(model, tools, database)
     
-    # load openai model
-    model,info=load_model()
-    if not model:
-        print(f'Failed to load model due to wrong API key or unavaliability of key')
+    print('Configuration loaded successfully')
+except Exception as e:
+    print(f'Failed to collect configuration due error {e}')
+
+
+# get configuration information
+@app.get('/')
+async def get_info():
+    return {
+        'Model': f"{info['Model']}",
+        "Database": f'{database.dialect}',
+        "Tools": [tool.name for tool in tools],
+        "Agent": f"SQL Agent",
+        "Supported_Languages": ["english", "hindi", "gujarati"]
+    }
+
+
+# get database information
+@app.get('/database')
+def database_info():
+    return {
+        "Database": database.dialect,
+        "Tables": database.get_table_names(), 
+    }
+
+
+# communicate with database in real language
+@app.post('/ask')
+async def query_database(
+    question: str,
+    language: Language = Query(Language.ENGLISH, description="Response language")
+):
+    lang_value = language.value
+    
+    # Add language instruction to the question itself
+    if lang_value != "english":
+        lang_instruction = LANGUAGE_INSTRUCTIONS.get(lang_value, "")
+        # Prepend language instruction to the question
+        modified_question = f"{lang_instruction}\n\nUser Question: {question}"
+        result = AskQuestion(agent=agents.get("english"), question=modified_question)
     else:
-        print(f"Sucessfully load the model: {info['Model']}")
+        result = AskQuestion(agent=agents.get("english"), question=question)
     
-    # # load database
-    # status=load_database()
-    # if status==200:
-    #     print('File downloaded and loaded successfully')
-    # else:
-    #     print('Failed to read database from the given url')
-    
-    # get database
-    database=load_database()
-    if database:
-        print(f'Dialect: {database.dialect}')
-        print(f'Available tables: {database.get_usable_table_names()}')
-    else:
-        print(f'Failed to load database information')
-    
-    # load toolkit
-    toolkit=getkit(database,model)
-    tools=toolkit.get_tools()
-    # if toolkit==-1:
-    #     print('Failed load the tool kits')
-    # else:
-    #     print('Tools available are')
-    #     tools=toolkit.get_tools()
-    #     # for tool in tools:
-    #     #     print(f'{tool.name}: {tool.description}\n')
-    
-    # load agent
-    agent=AgentCreate(model,tools,database)
-    
-    # ask question
-    question="What is the current progress and condition of our city?"
-    AskQuestion(question,agent)
-    
-    
-    
-    
+    return {
+        "question": question,
+        "language": lang_value,
+        "result": result
+    }
+
+
+if __name__ == "__main__":
+    uvicorn.run("app:app", port=5000, log_level="info")
